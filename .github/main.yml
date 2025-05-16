@@ -1,0 +1,63 @@
+permissions:
+  contents: write
+
+name: Ejecutar script y actualizar archivo en OneDrive y repositorio
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 8:00 hora España
+    - cron: '0 8 * * *'   # 10:00 hora España
+    - cron: '0 10 * * *'  # 12:00 hora España
+    - cron: '0 11 * * *'  # 13:00 hora España
+    - cron: '0 13 * * *'  # 15:00 hora España
+
+  workflow_dispatch:
+
+jobs:
+  run-and-update:
+    runs-on: ubuntu-latest
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: List files in directory (pre-run)
+        run: ls -la
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar script de actualización del Excel
+        run: python main.py
+
+      - name: List files in directory (post-run)
+        run: ls -la
+
+      # Commit y push del archivo actualizado en el repositorio
+      - name: Commit updated Excel file
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add "${{ env.EXCEL_FILE_PATH }}"
+          git commit -m "Actualizar archivo Excel con nuevos datos" || echo "No hay cambios que commitear"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Enviar el archivo actualizado directamente a Power Automate
+      - name: Enviar archivo actualizado a Power Automate
+        run: |
+          curl -X POST "https://prod-109.westeurope.logic.azure.com:443/workflows/a4aa390423de43dcada0a2e289183efb/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fk4ifgYtugNM0-zjTDgSiEh5LTZrsgXcJhHAgctDNg8" \
+            -H "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
+            --data-binary "@${{ env.EXCEL_FILE_PATH }}"
