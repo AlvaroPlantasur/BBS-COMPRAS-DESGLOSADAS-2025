@@ -1,21 +1,35 @@
 import os
-import pandas as pd
 import psycopg2
 from openpyxl import load_workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
+from datetime import datetime
+import sys
+import copy
 
-def conectar_db():
-    return psycopg2.connect(
-        dbname=os.environ["DB_NAME"],
-        user=os.environ["DB_USER"],
-        password=os.environ["DB_PASSWORD"],
-        host=os.environ["DB_HOST"],
-        port=os.environ["DB_PORT"]
-    )
+def main():
+    # 1. Obtener credenciales y ruta del archivo
+    db_name = os.environ.get('DB_NAME')
+    db_user = os.environ.get('DB_USER')
+    db_password = os.environ.get('DB_PASSWORD')
+    db_host = os.environ.get('DB_HOST')
+    db_port = os.environ.get('DB_PORT')
+    file_path = os.environ.get('EXCEL_FILE_PATH')
 
-def ejecutar_consulta(conn):
-    query = f"""
-        select 
+    db_params = {
+        'dbname': db_name,
+        'user': db_user,
+        'password': db_password,
+        'host': db_host,
+        'port': db_port
+    }
+
+    # 2. Definir fechas
+    fecha_inicio_str = '2025-01-01'
+    fecha_fin = datetime.now().date()
+    fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
+
+    # 3. Consulta SQL
+    query = f""" select 
         ail.invoice_id as "ID FACTURA",
         ai.name as "REFERENCIA ALBARÁN",
         ai.internal_number as "CÓDIGO FACTURA",
@@ -105,47 +119,76 @@ def ejecutar_consulta(conn):
         rp.nombre_comercial,
         ai.type,
         stp.directo_cliente,
-        rp.vat;
-    """
-    return pd.read_sql_query(query, conn)
+        rp.vat; """  # Tu consulta sigue igual
 
-def actualizar_excel(df, file_path, sheet_name="CompDesglosadas2025"):
-    print(f"Se obtuvieron {len(df)} filas de la consulta.")
+    # 4. Ejecutar la consulta
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                resultados = cur.fetchall()
+                headers = [desc[0] for desc in cur.description]
+    except Exception as e:
+        print(f"Error al conectar o ejecutar la consulta: {e}")
+        sys.exit(1)
 
+    if not resultados:
+        print("No se obtuvieron resultados de la consulta.")
+        return
+    else:
+        print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
+
+    # 5. Cargar el archivo Excel
     try:
         book = load_workbook(file_path)
+        sheet = book.active
+    except FileNotFoundError:
+        print(f"No se encontró el archivo '{file_path}'.")
+        return
 
-        if sheet_name not in book.sheetnames:
-            raise ValueError(f"La hoja '{sheet_name}' no existe en el archivo Excel.")
+    # 6. Detectar la fila de cabecera (la primera fila no vacía con más de 1 celda con contenido)
+    header_row = 1
+    for i, row in enumerate(sheet.iter_rows(min_row=1, max_row=10), start=1):
+        values = [cell.value for cell in row if cell.value is not None]
+        if len(values) > 1:
+            header_row = i
+            break
+    print(f"Fila de cabecera detectada: {header_row}")
 
-        sheet = book[sheet_name]
+    # 7. Borrar todas las filas de datos dejando la cabecera
+    if sheet.max_row > header_row:
+        sheet.delete_rows(header_row + 1, sheet.max_row - header_row)
 
-        # Borrar todas las filas excepto la cabecera
-        sheet.delete_rows(2, sheet.max_row)
+    # 8. Insertar nuevos datos debajo de la cabecera
+    for row in resultados:
+        sheet.append(row)
 
-        # Escribir el DataFrame (sin headers ni index)
-        for row in dataframe_to_rows(df, index=False, header=False):
-            sheet.append(row)
+    # 9. Copiar estilo de la fila de cabecera (fila siguiente si existe)
+    if sheet.max_row > header_row + 1:
+        for col in range(1, sheet.max_column + 1):
+            source_cell = sheet.cell(row=header_row + 1, column=col)
+            for row in range(header_row + 2, sheet.max_row + 1):
+                target_cell = sheet.cell(row=row, column=col)
+                target_cell.font = copy.copy(source_cell.font)
+                target_cell.fill = copy.copy(source_cell.fill)
+                target_cell.border = copy.copy(source_cell.border)
+                target_cell.alignment = copy.copy(source_cell.alignment)
 
-        book.save(file_path)
-        print("✅ Datos actualizados correctamente en la hoja", sheet_name)
+    # 10. Actualizar tabla
+    if "CompDesglosadas2025" in sheet.tables:
+        tabla = sheet.tables["CompDesglosadas2025"]
+        max_row = sheet.max_row
+        max_col = sheet.max_column
+        last_col_letter = get_column_letter(max_col)
+        new_ref = f"A{header_row}:{last_col_letter}{max_row}"
+        tabla.ref = new_ref
+        print(f"Tabla 'CompDesglosadas2025' actualizada a rango: {new_ref}")
+    else:
+        print("No se encontró la tabla 'CompDesglosadas2025'. No se actualizará la referencia.")
 
-    except Exception as e:
-        print("❌ Error al actualizar el archivo Excel:", str(e))
-        raise
+    # 11. Guardar archivo
+    book.save(file_path)
+    print(f"Archivo actualizado correctamente: '{file_path}'.")
 
-def main():
-    try:
-        conn = conectar_db()
-        df = ejecutar_consulta(conn)
-        conn.close()
-
-        file_path = os.environ.get("EXCEL_FILE_PATH")
-        actualizar_excel(df, file_path)
-
-    except Exception as e:
-        print("❌ Error general:", str(e))
-        raise
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
