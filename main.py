@@ -1,33 +1,19 @@
 import os
+import pandas as pd
 import psycopg2
 from openpyxl import load_workbook
-from datetime import datetime
-import sys
-import copy
+from openpyxl.utils.dataframe import dataframe_to_rows
 
-def main():
-    # 1. Obtener credenciales y ruta del archivo
-    db_name = os.environ.get('DB_NAME')
-    db_user = os.environ.get('DB_USER')
-    db_password = os.environ.get('DB_PASSWORD')
-    db_host = os.environ.get('DB_HOST')
-    db_port = os.environ.get('DB_PORT')
-    file_path = os.environ.get('EXCEL_FILE_PATH')
+def conectar_db():
+    return psycopg2.connect(
+        dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        host=os.environ["DB_HOST"],
+        port=os.environ["DB_PORT"]
+    )
 
-    db_params = {
-        'dbname': db_name,
-        'user': db_user,
-        'password': db_password,
-        'host': db_host,
-        'port': db_port
-    }
-
-    # 2. Definir fechas
-    fecha_inicio_str = '2025-01-01'
-    fecha_fin = datetime.now().date()
-    fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
-
-    # 3. Consulta SQL
+def ejecutar_consulta(conn):
     query = f"""
         select 
         ail.invoice_id as "ID FACTURA",
@@ -121,51 +107,45 @@ def main():
         stp.directo_cliente,
         rp.vat;
     """
+    return pd.read_sql_query(query, conn)
 
-    # 4. Ejecutar la consulta
-    try:
-        with psycopg2.connect(**db_params) as conn:
-            with conn.cursor() as cur:
-                cur.execute(query)
-                resultados = cur.fetchall()
-                headers = [desc[0] for desc in cur.description]
-    except Exception as e:
-        print(f"Error al conectar o ejecutar la consulta: {e}")
-        sys.exit(1)
+def actualizar_excel(df, file_path, sheet_name="CompDesglosadas2025"):
+    print(f"Se obtuvieron {len(df)} filas de la consulta.")
 
-    if not resultados:
-        print("No se obtuvieron resultados de la consulta.")
-        return
-    else:
-        print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
-
-    # 5. Cargar el archivo Excel
     try:
         book = load_workbook(file_path)
-        sheet = book.active
-    except FileNotFoundError:
-        print(f"No se encontró el archivo '{file_path}'.")
-        return
 
-    # 6. Insertar registros nuevos al final
-    start_row = sheet.max_row + 1
-    for row in resultados:
-        sheet.append(row)
+        if sheet_name not in book.sheetnames:
+            raise ValueError(f"La hoja '{sheet_name}' no existe en el archivo Excel.")
 
-    # 7. Copiar estilos desde la fila 2 a las nuevas filas
-    if sheet.max_row >= 2:
-        for col in range(1, sheet.max_column + 1):
-            source_cell = sheet.cell(row=2, column=col)
-            for row in range(start_row, sheet.max_row + 1):
-                target_cell = sheet.cell(row=row, column=col)
-                target_cell.font = copy.copy(source_cell.font)
-                target_cell.fill = copy.copy(source_cell.fill)
-                target_cell.border = copy.copy(source_cell.border)
-                target_cell.alignment = copy.copy(source_cell.alignment)
+        sheet = book[sheet_name]
 
-    # 8. Guardar archivo
-    book.save(file_path)
-    print(f"Archivo actualizado correctamente: '{file_path}'.")
+        # Borrar todas las filas excepto la cabecera
+        sheet.delete_rows(2, sheet.max_row)
 
-if __name__ == '__main__':
+        # Escribir el DataFrame (sin headers ni index)
+        for row in dataframe_to_rows(df, index=False, header=False):
+            sheet.append(row)
+
+        book.save(file_path)
+        print("✅ Datos actualizados correctamente en la hoja", sheet_name)
+
+    except Exception as e:
+        print("❌ Error al actualizar el archivo Excel:", str(e))
+        raise
+
+def main():
+    try:
+        conn = conectar_db()
+        df = ejecutar_consulta(conn)
+        conn.close()
+
+        file_path = os.environ.get("EXCEL_FILE_PATH")
+        actualizar_excel(df, file_path)
+
+    except Exception as e:
+        print("❌ Error general:", str(e))
+        raise
+
+if __name__ == "__main__":
     main()
