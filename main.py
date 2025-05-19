@@ -7,11 +7,11 @@ import copy
 
 def main():
     # 1. Obtener credenciales y ruta del archivo
-    db_name = os.environ.get('DB_NAME')
-    db_user = os.environ.get('DB_USER')
-    db_password = os.environ.get('DB_PASSWORD')
-    db_host = os.environ.get('DB_HOST')
-    db_port = os.environ.get('DB_PORT')
+    db_name = os.environ.get('semillas')
+    db_user = os.environ.get('openerp')
+    db_password = os.environ.get('PlantaSuR2016.')
+    db_host = os.environ.get('192.168.1.231')
+    db_port = os.environ.get('5432')
     file_path = os.environ.get('EXCEL_FILE_PATH')
 
     db_params = {
