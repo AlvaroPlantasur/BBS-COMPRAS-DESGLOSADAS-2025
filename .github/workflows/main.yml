@@ -58,6 +58,6 @@ jobs:
       # Enviar el archivo actualizado directamente a Power Automate
       - name: Enviar archivo actualizado a Power Automate
         run: |
-          curl -X POST "https://prod-109.westeurope.logic.azure.com:443/workflows/a4aa390423de43dcada0a2e289183efb/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fk4ifgYtugNM0-zjTDgSiEh5LTZrsgXcJhHAgctDNg8" \
+          curl -X POST "https://prod-66.westeurope.logic.azure.com:443/workflows/80fa1518fd924d88b41decb16144d815/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=oFzlt37QBnIlga4niElPIArKO4Mz1lU0kxLWBmuroDg" \
             -H "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
             --data-binary "@${{ env.EXCEL_FILE_PATH }}"
