@@ -81,6 +81,6 @@ jobs:
         run: |
           echo "Enviando archivo ${{ env.EXCEL_FILE_PATH }} a Power Automate..."
           # URL de Power Automate para subir el archivo "Compras Desglosadas"
-          curl -X POST "https://prod-138.westeurope.logic.azure.com:443/workflows/9d2f970aa21a4ae2bf8b0e20ebb509a8/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=10BkbFfueX4ImG0yfRlTfcohowZ3Bj1naEA01XlLuPM" \
+          curl -X POST "https://prod-66.westeurope.logic.azure.com:443/workflows/80fa1518fd924d88b41decb16144d815/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=oFzlt37QBnIlga4niElPIArKO4Mz1lU0kxLWBmuroDg" \
             -H "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
             --data-binary "@${{ env.EXCEL_FILE_PATH }}"
