@@ -48,7 +48,7 @@ def main():
         rp.vat as "CIF CLIENTE",
         c.name as "PAÍS",
         extract(MONTH FROM ai.date_invoice) as "MES",
-        extract(MONTH FROM ai.date_invoice) as "DÍA",
+        extract(DAY FROM ai.date_invoice) as "DÍA",
         (
             case when ai.type = 'in_invoice' then ail.cantidad_pedida
             when ai.type = 'in_refund' then -ail.cantidad_pedida
