@@ -1,7 +1,6 @@
 permissions:
-  # 'contents: write' solo es necesario si mantienes el paso de commit y push al repositorio.
-  # Lo cambiaremos a 'read' si el commit se hace opcional y se desactiva.
-  contents: read # Asumiendo que el commit al repo no es la opción por defecto
+ 
+  contents: read 
 
 name: Ejecutar script Compras Desglosadas y actualizar desde SharePoint
 
@@ -23,16 +22,15 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
-      # EXCEL_FILE_PATH debe contener el nombre del archivo, ej: "ComprasDesglosadas.xlsx"
-      # Este secret lo defines en GitHub y el script Python lo usa.
+      
       EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }} 
-      # Nuevo secret para la URL de descarga del archivo "Compras Desglosadas"
+      
       PA_DOWNLOAD_URL: ${{ secrets.PA_DOWNLOAD_URL_COMPRAS_DESGLOSADAS }} 
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      # --- NUEVO PASO PARA DESCARGAR EL ARCHIVO ---
+      # --- PASO PARA DESCARGAR EL ARCHIVO ---
       - name: Descargar Excel (${{ env.EXCEL_FILE_PATH }}) desde SharePoint vía Power Automate
         run: |
           echo "Descargando archivo ${{ env.EXCEL_FILE_PATH }} desde Power Automate..."
@@ -54,18 +52,18 @@ jobs:
           python-version: '3.x' 
 
       - name: Instalar dependencias
-        run: pip install -r requirements.txt # Asegúrate que requirements.txt está en tu repo
+        run: pip install -r requirements.txt 
 
       - name: Ejecutar script de actualización del Excel (main.py para Compras Desglosadas)
-        run: python main.py # Tu script main.py para "CompDesglosadas2025"
+        run: python main.py 
 
       - name: Listar archivos en el directorio (después de ejecutar el script)
         run: ls -la
 
       # --- PASO OPCIONAL: COMMIT Y PUSH AL REPOSITORIO ---
-      # Este paso estaba en tu YML. Si no quieres guardar en GitHub, puedes eliminarlo o poner if: false.
+      
       - name: Commit updated Excel file (Opcional)
-        if: false # Cambia a 'true' si quieres que se guarde en el repositorio
+        if: false 
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
@@ -76,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --- ENVIAR ARCHIVO ACTUALIZADO A POWER AUTOMATE ---
-      # Este paso ya lo tenías configurado correctamente para enviar binario.
+      
       - name: Enviar archivo actualizado a Power Automate
         run: |
           echo "Enviando archivo ${{ env.EXCEL_FILE_PATH }} a Power Automate..."
