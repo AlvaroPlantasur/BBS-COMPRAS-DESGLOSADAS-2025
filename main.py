@@ -119,7 +119,7 @@ def main():
         rp.nombre_comercial,
         ai.type,
         stp.directo_cliente,
-        rp.vat; """  # Tu consulta sigue igual
+        rp.vat; """  
 
     # 4. Ejecutar la consulta
     try:
